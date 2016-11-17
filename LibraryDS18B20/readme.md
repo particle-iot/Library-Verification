@@ -1,2 +1,2 @@
 
-# Library verificafor DS18B20.
+## Library verificafor DS18B20.
