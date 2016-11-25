@@ -4,7 +4,7 @@
 ...confortable to use this library in their project. 
 ...This verification code is performed under the unit-test system and also based the particle platform.
 
- ### 1. Hardware preparation for running this firmware.
+ ### Hardware preparation for running this firmware.
 ..* Electron/Photon/Core.
 ..* DS18b20 or DS1822 one-wire temperature sensor.
 ..* Breadboard.
