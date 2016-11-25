@@ -17,6 +17,9 @@ This verification code is performed under the unit-test system and also based th
 * ds18b20 library `0.1.03`
 * onewrire library `1.4.1`
 
+## Verify process
+  1. Create a project from WEB IED or Particle DEV and then. Add the `.ino` file into that project.
+  
 
 
 
