@@ -1,260 +1,263 @@
+
+
 // This #include statement was automatically added by the Particle IDE.
-#include "DS18B20/DS18B20.h"
+#include "unit-test.h"
+// This #include statement was automatically added by the Particle IDE.
+#include "DS18B20.h"
 
-#define NONE_KEY    0
-#define SHORT_KEY   1
-#define LONG_KEY    2
+#define UPDATE_INTERVAL 1000     //the udpate speed for the sensor
 
-#define UPDATE_INTERVAL 1000     //
+/**
+ * Demonstrates a simple test that passes and one that fails.
+ * Input/Output via serial.
+ * To start the test, press 't'.
+ *
+ * The tests are run in alphabetical order.
+ */
+
+ DS18B20 ds18b20 = DS18B20(D4);
+
+ unsigned long updateTime=0;
+ int c=0;
+ double current_temperature=0;
+ double hot_temperature=0;
+ double cool_temperature=0;
+ char String[20]={};
+ uint8_t retryTime=0;
 
 
-
-DS18B20 ds18b20 = DS18B20(D4);
-
-// EXAMPLE USAGE
-void button_handler(system_event_t event, int duration, void* )
+//this is the first step, which need to wire up the sensor based on the diagram from Fritzing .
+test(010_sensor_wireup)
 {
-    if(!duration)
-    { // just pressed
-        RGB.control(true);
-        RGB.color(255, 0, 255); // MAGENTA
+    c = Serial.read();
+    while (c!=-1) {     //this is used to clear up the catch in the serial buffer.
+        c = Serial.read();
     }
-    else
-    { // just released
-        RGB.control(false);
-    }
-}
-
-
-uint8_t buttonProcess(void)
-{
-    static uint8_t keyStatus=0;
-    uint8_t button=0;
-    switch(keyStatus)
+    Serial.println("Please connect the sensor with photon/electron/core as Fritzing shows");
+    Serial.println("Please type 'y' when you are ready");
+    c = Serial.read();
+    while((c!='Y')&&(c!='y'))
     {
-        case 0:     //detect a button press action
-                if(System.buttonPushed()>1)
-                    keyStatus=1;
-                else
-                    keyStatus=0;
-                button=NONE_KEY;
-                break;
-        case 1:     //debounce,make sure it's valid press
-                if(System.buttonPushed()>10)
-                    keyStatus=2;
-                else
-                    keyStatus=0;
-                button=NONE_KEY;
-                break;
-        case 2:
-                if(System.buttonPushed()>20)
-                {
-                    keyStatus=3;
-                    button=SHORT_KEY;
-                }
-                else
-                {
-                    keyStatus=0;
-                    button=NONE_KEY;
-                }
-                break;
-        case 3:
-                if(System.buttonPushed()>=1500)
-                {
-                    keyStatus=4;
-                    button=LONG_KEY;
-                }
-                else
-                {
-                    keyStatus=0;    //go back to the inital stage
-                }
-                break;
-        case 4:
-                if(System.buttonPushed()>=1600) //didnot release the button yet
-                {
-                    keyStatus=4;
-                    button=NONE_KEY;
-                }
-                break;
-        default:break;
+        c = Serial.read();
     }
-    return button;
-}
-void setup()
-{
-    System.on(button_status, button_handler);
-    Serial.begin(9600);
+    assertEqual(c, 'y');
 }
 
-
-static uint8_t testStep=0;
-static uint8_t lastTestStep=0;
-unsigned long updateTime=0;
-uint8_t sensorDetect=0;
-double temperature=0;
-uint8_t retryTime=0;
-
-void loop()
+//this step is used to read oout all the info related with sensor, such as chip type and sensor name.
+test(020_sensor_type)
 {
 
-    if(buttonProcess()==SHORT_KEY)      //increase the test step when press the button
-        testStep++;
-    else
-    if(buttonProcess()==LONG_KEY)       //goback to the initial test step once
-        testStep=0;
-
-    if(testStep!=lastTestStep)
+    Serial.println("Please type 'y' when the sensor type and name is correct otherwise type 'n'");
+    c= Serial.read();
+    while((c!='n')&&(c!='y'))
     {
-        lastTestStep=testStep;
-        switch(testStep)
+        c = Serial.read();
+        if(millis()-updateTime>UPDATE_INTERVAL)         //setup the interval time to make sure the sensor will print out the info every 1 second
         {
-            case 0:
-                Serial.println("Plesae press the SETUP button to start the library test!");
-                break;
-            case 1:
-                Serial.println("step 1: Verify the chip verion");//Support DS18B20,DS18S20.DS1822
-                break;
-            case 2:
-                Serial.println("step 2: Verify the temperature value. Make sure the vaule is the same as ambient temperature");
-                break;
-            case 3:
-                Serial.println("step 3: Veify the temperature value when sensor is close to a heat source.Make sure the value is bigger than last step!");
-                break;
-            case 4:
-                Serial.println("step 4: Verify the temperature value when sensor is close to a cool source. Make sure tha value is smaller than step2!");
-                break;
-            case 5:
-                Serial.println("step 5: Verify the temperature value when sensor is powered by DataPin. Make sure VCC pin is connected with GND pin");
-                break;
-            case 6:
-                Serial.println("go back to stage 1");
-                testStep=1;
-                break;
-            default:
-                break;
-        }
-        delay(1000);    //make a delay here so that
-    }
-    if((millis()-updateTime)>UPDATE_INTERVAL)
-    {
-        updateTime=millis();
-        switch(testStep)
-        {
-            case 1:
-                if(ds18b20.search())
-                {
-                    Serial.printf("This chip type is: %x\r\n",ds18b20.getChipType());
-                    Serial.printf("This sensor name is: %s\r\n",ds18b20.getChipName());
-                    ds18b20.resetsearch();          //why need this sentence for re-search the sensor????????
-                    sensorDetect=1;     //a sensor had been detected.
-                }
-                else
-                {
-                    Serial.println("Cannot find a temperature sensor online");
-                    sensorDetect=0;
-                }
-                break;
-            case 2:
-                if(sensorDetect==1)
-                {
-                    temperature = ds18b20.getTemperature();
-                    if(!ds18b20.crcCheck()&&(retryTime<4))
-                    {
-                        Serial.printf("Get a bad value.Retry %d times\r\n",retryTime+1);
-                        retryTime++;
-                        if(retryTime==4)
-                        {
-                            testStep=1;    //go back to the last step
-                            Serial.println("No temperature sensor is online now! Will go back to stage1 to find out the sensor");
-                        }
-                    }
-                    else
-                    {
-                        retryTime=0;
-                        Serial.print("Current temperature is:");
-                        Serial.print(temperature);
-                        Serial.println(" celcuis");
-                    }
-                }
-                break;
-            case 3:
-                if(sensorDetect==1)
-                {
-                    temperature = ds18b20.getTemperature();
-                    if(!ds18b20.crcCheck()&&(retryTime<4))
-                    {
-                        Serial.printf("Get a bad value.Retry %d times\r\n",retryTime+1);
-                        retryTime++;
-                        if(retryTime==4)
-                        {
-                            testStep=1;    //go back to the last step
-                            Serial.println("No temperature sensor is online now! Will go back to stage1 to find out the sensor");
-                        }
-                    }
-                    else
-                    {
-                        retryTime=0;
-                        Serial.print("Current temperature is:");
-                        Serial.print(temperature);
-                        Serial.println(" celcuis");
-                        Serial.println("Which should be HIGHER than last step's");
-                    }
-                }
-                break;
-            case 4:
-                if(sensorDetect==1)
-                {
-                    temperature = ds18b20.getTemperature();
-                    if(!ds18b20.crcCheck()&&(retryTime<4))
-                    {
-                        Serial.printf("Get a bad value.Retry %d times\r\n",retryTime+1);
-                        retryTime++;
-                        if(retryTime==4)
-                        {
-                            testStep=1;    //go back to the last step
-                            Serial.println("No temperature sensor is online now! Will go back to stage1 to find out the sensor");
-                        }
-                    }
-                    else
-                    {
-                        retryTime=0;
-                        Serial.print("Current temperature is:");
-                        Serial.print(temperature);
-                        Serial.println(" celcuis");
-                        Serial.println("Which should be LOWER than last step's");
-                    }
-                }
-                break;
-            case 5:
-                if(sensorDetect==1)
-                {
-                    temperature = ds18b20.getTemperature();
-                    if(!ds18b20.crcCheck()&&(retryTime<4))
-                    {
-                        Serial.printf("Get a bad value.Retry %d times\r\n",retryTime+1);
-                        retryTime++;
-                        if(retryTime==4)
-                        {
-                            testStep=1;    //go back to the last step
-                            Serial.println("No temperature sensor is online now! Will go back to stage1 to find out the sensor");
-                        }
-                    }
-                    else
-                    {
-                        retryTime=0;
-                        Serial.print("Current temperature is:");
-                        Serial.print(temperature);
-                        Serial.println(" celcuis");
-                        Serial.println("Which should be the same as when in the same environment");
-                        if(ds18b20.readPowerSupply())
-                            Serial.println("The sensor works in parasite power mode now");
-                        else
-                            Serial.println("The sensor isn't work in parasite powerw mode,please check the wire connection");
-                    }
-                }
-                break;
-            default:
-                break;
+            updateTime=millis();
+            if(ds18b20.search())
+            {
+                Serial.printf("This chip type is: %x\r\n",ds18b20.getChipType());
+                Serial.printf("This sensor name is: %s\r\n",ds18b20.getChipName());
+                ds18b20.getROM(String);
+               // ds18b20.resetsearch();         //need to reset the search???
+                Serial.printf("The id is %s\r\n",String);           //get the id of ds18b20
+            }
+            else
+                Serial.println("There is no chip had been found");
+            Serial.println("Please type 'y' when the sensor type and name is correct otherwise type 'n'");
         }
     }
+    assertEqual(c,'y');         //a system function which is from unit-test library
 }
+
+//This step is used to read out the temperature  from the sensor, that value should be very close to the REAL temperature.
+test(030_sensor_value_normal)
+{
+    Serial.println("Please Check the temperature and press 'y' if it's normal temperature");
+    c=Serial.read();
+    while((c!='n')&&(c!='y'))
+    {
+        c=Serial.read();
+        if(millis()-updateTime>UPDATE_INTERVAL)
+        {
+            updateTime = millis();
+            current_temperature = ds18b20.getTemperature();
+            if(!ds18b20.crcCheck()&&(retryTime<4))      //make sure the value is correct by checking the crc value,assume to stop the test once it cannot read out the value correclty four times.
+            {
+                Serial.printf("Get a bad value.Retry %d times\r\n",retryTime+1);
+                retryTime++;
+                if(retryTime==4)
+                {
+                    Serial.println("No temperature sensor is online now! Need to type 'n' to stop the test");
+                }
+            }
+            else
+            {
+                retryTime=0;
+                Serial.print("Current temperature is:");
+                Serial.print(current_temperature);
+                Serial.println(" celcuis");
+                Serial.println("Type 'y' when the temeprature is reasonable otherwise type 'n'");
+            }
+        }
+    }
+    assertEqual(c,'y');
+}
+
+//This step is used to meassure the temperature when it's close to a heat source, which means the value should be higher than the last step's value.
+test(040_sensor_value_hot)
+{
+    Serial.println("Put the sensor close to a heat source and type 'y' when you are ready");
+    c=Serial.read();
+    while(c!='y')           //waiting for the operator to start the test after attach the sensor to a heat source.
+    {
+        c=Serial.read();
+    }
+    c=0;    //clear the value.
+    while((c!='n')&&(c!='y'))
+    {
+        c=Serial.read();
+        if(millis()-updateTime>UPDATE_INTERVAL)
+        {
+            updateTime = millis();
+            hot_temperature = ds18b20.getTemperature();
+            if(!ds18b20.crcCheck()&&(retryTime<4))
+            {
+                Serial.printf("Get a bad value.Retry %d times\r\n",retryTime+1);
+                retryTime++;
+                if(retryTime==4)
+                {
+                    Serial.println("No temperature sensor is online now! Need to stop the test");
+                }
+            }
+            else
+            {
+                retryTime=0;
+                Serial.print("Current temperature is:");
+                Serial.print(hot_temperature);
+                Serial.println(" celcuis");
+                Serial.println("Type 'y' when the temeprature is hotter than last step,otherwise type 'n'");
+            }
+        }
+    }
+    assertMore(hot_temperature,current_temperature);
+}
+
+
+//This step is used to measure the temperature when it's close to a cool source, which means the value should be lower than the last step's value
+test(050_sensor_value_cool)
+{
+    Serial.println("Put the sensor close to a cool source and type 'y' when you are ready");
+    c=Serial.read();
+    while(c!='y')           //waiting for the operator to start the test after attach the sensor to a heat source.
+    {
+        c=Serial.read();
+    }
+    c=0;    //clear the value
+    while((c!='n')&&(c!='y'))
+    {
+        c=Serial.read();
+        if(millis()-updateTime>UPDATE_INTERVAL)
+        {
+            updateTime = millis();
+            cool_temperature = ds18b20.getTemperature();
+            if(!ds18b20.crcCheck()&&(retryTime<4))
+            {
+                Serial.printf("Get a bad value.Retry %d times\r\n",retryTime+1);
+                retryTime++;
+                if(retryTime==4)
+                {
+                    Serial.println("No temperature sensor is online now! Need to stop the test");
+                }
+            }
+            else
+            {
+                retryTime=0;
+                Serial.print("Current temperature is:");
+                Serial.print(cool_temperature);
+                Serial.println(" celcuis");
+                Serial.println("Type 'y' when the temeprature is cooler than last step,otherwise type 'n'");
+            }
+        }
+    }
+    assertLess(cool_temperature,current_temperature);
+}
+
+
+//This step is used to measure the temperature when there is no power on VCC pin BUT the pull-up resistor on Data pin should still apply power.
+test(060_sensor_parasite)
+{
+    Serial.println("Remove the power from VCC pin on temperature sensor and type 'y' when you are ready");
+    c=Serial.read();
+    while(c!='y')           //waiting for the operator to start the test after attach the sensor to a heat source.
+    {
+        c=Serial.read();
+    }
+    c=0;    //clear the value.
+    while((c!='n')&&(c!='y'))
+    {
+        c=Serial.read();
+        if(millis()-updateTime>UPDATE_INTERVAL)
+        {
+            updateTime = millis();
+            current_temperature = ds18b20.getTemperature();
+            if(!ds18b20.crcCheck()&&(retryTime<4))
+            {
+                Serial.printf("Get a bad value.Retry %d times\r\n",retryTime+1);
+                retryTime++;
+                if(retryTime==4)
+                {
+                    Serial.println("No temperature sensor is online now! Need to stop the test");
+                }
+            }
+            else
+            {
+                retryTime=0;
+                Serial.print("Current temperature is:");
+                Serial.print(current_temperature);
+                Serial.println(" celcuis");
+                if(ds18b20.readPowerSupply())
+                    Serial.println("The sensor works in parasite power mode now");
+                else
+                    Serial.println("The sensor isn't work in parasite power mode,please check the wire connection");
+                Serial.println("Type 'y' when the temeprature is normal without the power on VCC pin,otherwise type 'n'");
+            }
+        }
+    }
+    assertEqual(c,'y');
+}
+
+//This step is used to verify the funtion of cascading sensor from one wire.Make sure the Data line of all those sensors are connected to the D4
+test(070_sensor_cascade)
+{
+
+    Serial.println("Put two sensor with exactly the same circuit and type `y` when you are ready");
+    c=Serial.read();
+    while(c!='y')
+    {
+        c=Serial.read();
+    }
+    c=0;
+    while((c!='y')&&(c!='n'))
+    {
+        c=Serial.read();
+        if(millis()-updateTime>UPDATE_INTERVAL)
+        {
+            updateTime=millis();
+            if(ds18b20.search())    //the searched value will be differenet if there are at least two sensor attaced to the same data line.
+            {
+                Serial.printf("This chip type is: %x\r\n",ds18b20.getChipType());
+                Serial.printf("This sensor name is: %s\r\n",ds18b20.getChipName());
+                ds18b20.getROM(String);
+               // ds18b20.resetsearch();         //need to reset the search???
+                Serial.printf("The id is %s\r\n",String);
+            }
+            else
+                Serial.println("There is no chip had been found");
+            Serial.println("Please type 'y' when you find two sensors otherwise type 'n'");
+        }
+    }
+}
+
+UNIT_TEST_APP()
