@@ -18,7 +18,8 @@ This verification code is performed under the unit-test system and also based th
 * onewrire library `1.4.1`
 
 ## Verify process
-  1. Create a project from WEB IED or Particle DEV and then. Add the `.ino` file into that project.
+  1. Setup the hardware system based on the `ds18b20.fzz` diagarm file. You may need to install Fritzing from [this website](http://fritzing.org/download/).
+  2. Create a project from WEB IED or Particle DEV and then. Add the `.ino` file into that project.
   
 
 
